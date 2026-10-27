@@ -37,6 +37,27 @@ async def main() -> None:
         for content in resource_result.contents:
             if isinstance(content, TextResourceContents):
                 print(content.text)
+        
+        # List available prompts
+        prompt_result = await client.list_prompts()
+
+        print("\n=== Available Prompts ===")
+        for prompt in prompt_result.prompts:
+            print(f"- {prompt.name}: {prompt.description}")
+
+                # Render the travel planning prompt
+        rendered_prompt = await client.get_prompt(
+            "plan_trip",
+            {
+                "city": "Bali",
+                "budget": "1500000",
+                "days": "3",
+            },
+        )
+
+        print("\n=== Rendered Prompt ===")
+        for message in rendered_prompt.messages:
+            print(message.content.text)
 
 
 if __name__ == "__main__":

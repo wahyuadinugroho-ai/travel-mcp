@@ -49,5 +49,19 @@ def get_destinations() -> list[dict]:
     return DESTINATIONS
 
 
+@mcp.prompt()
+def plan_trip(
+    city: str,
+    budget: int,
+    days: int,
+) -> str:
+    """Create a travel planning prompt for a destination."""
+    return (
+        f"Create a {days}-day travel plan for {city}.\n"
+        f"Total budget: IDR {budget:,}.\n"
+        "Suggest an itinerary, estimated costs, and practical travel tips."
+    )
+
+
 if __name__ == "__main__":
     mcp.run()
