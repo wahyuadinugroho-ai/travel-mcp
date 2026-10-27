@@ -39,7 +39,14 @@ async def main() -> None:
         )
 
         print("\n=== Trip Budget ===")
-        print(budget_result.structured_content)
+
+        if budget_result.is_error:
+            print("The budget calculation failed.")
+            for content in budget_result.content:
+                if hasattr(content, "text"):
+                    print(content.text)
+        else:
+            print(budget_result.structured_content)
 
         # Read the destinations resource
         resource_result = await client.read_resource(

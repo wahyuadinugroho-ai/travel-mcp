@@ -42,6 +42,12 @@ def search_destinations(
 ) -> list[dict]:
     """Cari destinasi wisata berdasarkan kota dan budget maksimum."""
 
+    if not city.strip():
+        raise ValueError("City cannot be empty.")
+
+    if max_budget < 0:
+        raise ValueError("Maximum budget cannot be negative.")
+
     results = [
         destination
         for destination in DESTINATIONS
@@ -59,6 +65,16 @@ def calculate_trip_budget(
     transport_cost: int,
 ) -> TripBudgetResult:
     """Calculate the estimated total budget for a trip."""
+
+    if days <= 0:
+        raise ValueError("Days must be greater than zero.")
+
+    if daily_budget < 0:
+        raise ValueError("Daily budget cannot be negative.")
+
+    if transport_cost < 0:
+        raise ValueError("Transport cost cannot be negative.")
+
     return {
         "days": days,
         "daily_budget": daily_budget,
