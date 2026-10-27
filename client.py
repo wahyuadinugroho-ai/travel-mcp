@@ -1,24 +1,23 @@
-import asyncio
-import json
-
 from mcp import Client, StdioServerParameters
+from mcp.types import TextResourceContents
 
 
-server = StdioServerParameters(
-    command="uv",
-    args=["run", "server.py"],
-)
+async def main() -> None:
+    server = StdioServerParameters(
+        command="uv",
+        args=["run", "server.py"],
+    )
 
-
-async def main():
     async with Client(server) as client:
+        # List available tools
         tools = await client.list_tools()
 
-        print("=== TOOLS TERSEDIA ===")
+        print("=== Available Tools ===")
         for tool in tools.tools:
             print(f"- {tool.name}: {tool.description}")
 
-        result = await client.call_tool(
+        # Call the existing search tool
+        tool_result = await client.call_tool(
             "search_destinations",
             {
                 "city": "Bali",
@@ -26,21 +25,21 @@ async def main():
             },
         )
 
-        print("\n=== HASIL PENCARIAN ===")
+        print("\n=== Search Results ===")
+        print(tool_result.structured_content)
 
-        if result.is_error:
-            print("Tool gagal dijalankan.")
-            return
+        # Read the destinations resource
+        resource_result = await client.read_resource(
+            "travel://destinations"
+        )
 
-        # Ambil data terstruktur dari hasil MCP
-        destinations = result.structured_content["result"]
-
-        for index, destination in enumerate(destinations, start=1):
-            print(f"\nDestinasi {index}")
-            print(f"Nama   : {destination['name']}")
-            print(f"Kota   : {destination['city']}")
-            print(f"Budget : Rp{destination['budget']:,}".replace(",", "."))
+        print("\n=== All Destinations ===")
+        for content in resource_result.contents:
+            if isinstance(content, TextResourceContents):
+                print(content.text)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import anyio
+
+    anyio.run(main)

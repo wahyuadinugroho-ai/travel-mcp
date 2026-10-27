@@ -43,5 +43,11 @@ def search_destinations(
     return results
 
 
+@mcp.resource("travel://destinations")
+def get_destinations() -> list[dict]:
+    """Return all available travel destinations."""
+    return DESTINATIONS
+
+
 if __name__ == "__main__":
     mcp.run()
