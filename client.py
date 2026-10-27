@@ -28,6 +28,19 @@ async def main() -> None:
         print("\n=== Search Results ===")
         print(tool_result.structured_content)
 
+        # Calculate a trip budget
+        budget_result = await client.call_tool(
+            "calculate_trip_budget",
+            {
+                "days": 3,
+                "daily_budget": 500000,
+                "transport_cost": 300000,
+            },
+        )
+
+        print("\n=== Trip Budget ===")
+        print(budget_result.structured_content)
+
         # Read the destinations resource
         resource_result = await client.read_resource(
             "travel://destinations"
@@ -45,7 +58,7 @@ async def main() -> None:
         for prompt in prompt_result.prompts:
             print(f"- {prompt.name}: {prompt.description}")
 
-                # Render the travel planning prompt
+        # Render the travel planning prompt
         rendered_prompt = await client.get_prompt(
             "plan_trip",
             {

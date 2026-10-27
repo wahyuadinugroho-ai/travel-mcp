@@ -1,6 +1,15 @@
 from mcp.server import MCPServer
+from typing import TypedDict
+
 
 mcp = MCPServer("Travel Assistant")
+
+class TripBudgetResult(TypedDict):
+    days: int
+    daily_budget: int
+    transport_cost: int
+    total_budget: int
+
 
 DESTINATIONS = [
     {
@@ -41,6 +50,21 @@ def search_destinations(
     ]
 
     return results
+
+
+@mcp.tool()
+def calculate_trip_budget(
+    days: int,
+    daily_budget: int,
+    transport_cost: int,
+) -> TripBudgetResult:
+    """Calculate the estimated total budget for a trip."""
+    return {
+        "days": days,
+        "daily_budget": daily_budget,
+        "transport_cost": transport_cost,
+        "total_budget": (days * daily_budget) + transport_cost,
+    }
 
 
 @mcp.resource("travel://destinations")
