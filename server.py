@@ -1,10 +1,37 @@
 from mcp.server import MCPServer
 from typing import TypedDict
+from pydantic import AnyHttpUrl
+from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.settings import AuthSettings
 import logging
 
 logger = logging.getLogger(__name__)
 
-mcp = MCPServer("Travel Assistant")
+RESOURCE_URL = "http://127.0.0.1:8000/mcp"
+
+KNOWN_TOKENS = {
+    "travel-dev-token": AccessToken(
+        token="travel-dev-token",
+        client_id="travel-local-client",
+        scopes=["travel:read"],
+        resource=RESOURCE_URL,
+    )
+}
+
+class StaticTokenVerifier(TokenVerifier):
+    async def verify_token(self, token: str) -> AccessToken | None:
+        return KNOWN_TOKENS.get(token)
+
+mcp = MCPServer(
+    "Travel Assistant",
+    token_verifier=StaticTokenVerifier(),
+    auth=AuthSettings(
+            issuer_url=AnyHttpUrl("https://auth.example.com"),
+            resource_server_url=AnyHttpUrl(RESOURCE_URL),
+            required_scopes=["travel:read"],
+            validate_token_resource=True,
+        ),
+    )
 
 class TripBudgetResult(TypedDict):
     days: int
