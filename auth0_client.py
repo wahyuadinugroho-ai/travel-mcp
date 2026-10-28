@@ -1,5 +1,6 @@
 
 import asyncio
+import logging
 import os
 import time
 import httpx2
@@ -7,6 +8,8 @@ from dotenv import load_dotenv
 
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 _cached_access_token: str | None = None
 _token_expires_at = 0.0
@@ -19,6 +22,7 @@ async def get_access_token() -> str:
         _cached_access_token is not None
         and time.monotonic() < _token_expires_at - 60
     ):
+        logger.debug("Reusing cached Auth0 access token.")
         return _cached_access_token
 
     domain = os.environ["AUTH0_DOMAIN"].removeprefix("https://").rstrip("/")
@@ -26,6 +30,8 @@ async def get_access_token() -> str:
     client_secret = os.environ["AUTH0_CLIENT_SECRET"]
     audience = os.environ["AUTH0_AUDIENCE"]
 
+    logger.info("Requesting an Auth0 access token.")
+    
     for attempt in range(3):
         try:
             async with httpx2.AsyncClient(timeout=10.0) as client:
@@ -44,16 +50,27 @@ async def get_access_token() -> str:
                 break
 
         except httpx2.HTTPStatusError as exc:
+            logger.warning(
+                "Auth0 returned HTTP %s on attempt %s.",
+                exc.response.status_code,
+                attempt + 1,
+            )
             # Retry only for temporary server errors.
             if exc.response.status_code < 500 or attempt == 2:
                 raise
 
-        except httpx2.TransportError:
-            # Retry network errors, but stop after the final attempt.
+        except httpx2.TransportError as exc:
+            logger.warning(
+                "Auth0 token request failed with a transport error on attempt %s: %s",
+                attempt + 1,
+                type(exc).__name__,
+            )
             if attempt == 2:
                 raise
 
         await asyncio.sleep(2 ** attempt)
+
+    logger.info("Successfully obtained an Auth0 access token.")
 
     _cached_access_token = payload["access_token"]
     _token_expires_at = time.monotonic() + payload["expires_in"]

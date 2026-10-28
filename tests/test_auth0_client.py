@@ -1,5 +1,6 @@
 
 import httpx2
+import logging
 import pytest
 
 import auth0_client
@@ -107,7 +108,9 @@ async def test_get_access_token_refreshes_near_expiration(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_get_access_token_retries_server_error(monkeypatch):
+async def test_get_access_token_retries_server_error(monkeypatch, caplog):
+    caplog.set_level(logging.DEBUG, logger="auth0_client")
+
     request_count = 0
 
     def mock_handler(request: httpx2.Request) -> httpx2.Response:
@@ -151,6 +154,10 @@ async def test_get_access_token_retries_server_error(monkeypatch):
 
     assert token == "recovered-token"
     assert request_count == 2
+
+    # Verify retry and success logs.
+    assert "Auth0 returned HTTP 500 on attempt 1." in caplog.text
+    assert "Successfully obtained an Auth0 access token." in caplog.text
 
 
 @pytest.mark.anyio
@@ -223,3 +230,33 @@ async def test_get_access_token_retries_network_error(monkeypatch):
         await auth0_client.get_access_token()
 
     assert request_count == 3
+
+
+@pytest.mark.anyio
+async def test_get_access_token_logs_cache_reuse_without_secrets(
+    monkeypatch,
+    caplog,
+):
+    import logging
+
+    caplog.set_level(logging.DEBUG, logger="auth0_client")
+
+    monkeypatch.setattr(
+        auth0_client,
+        "_cached_access_token",
+        "test-access-token",
+    )
+    monkeypatch.setattr(
+        auth0_client,
+        "_token_expires_at",
+        auth0_client.time.monotonic() + 3600,
+    )
+
+    token = await auth0_client.get_access_token()
+
+    assert token == "test-access-token"
+    assert "Reusing cached Auth0 access token." in caplog.text
+
+    # Ensure logs do not expose credentials or access tokens.
+    assert "test-client-secret" not in caplog.text
+    assert "test-access-token" not in caplog.text

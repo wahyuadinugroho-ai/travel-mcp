@@ -93,3 +93,11 @@
 - Develop `minimal-mcp` as a reusable MCP core for multiple domains.
 - Keep learning notes separate from official project documentation.
 - Refactor the application into a modular `src/` package when the appropriate milestone is reached.
+
+### Lesson 14 — Logging & Observability
+
+- Added Python logging to the Auth0 token client.
+- Added DEBUG, INFO, and WARNING logs for token caching, requests, retries, and failures.
+- Added tests using pytest `caplog` to verify retry and cache logging.
+- Verified that access tokens and client secrets are not exposed in the tested log output.
+- Confirmed that all 11 tests pass.
