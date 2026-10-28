@@ -54,7 +54,7 @@
 - Verified refresh when the token approaches expiration.
 - Verified authentication failures are rejected.
 
-## 2026-10-28 — Error Handling and Retry Strategy (Lesson 13)
+## Lesson 13 — Error Handling and Retry Strategy
 
 ### Objectives
 - Add request timeouts to Auth0 token requests.
@@ -81,11 +81,21 @@
 - Verified the existing token-caching tests still pass.
 - Confirmed the test suite passes after the changes.
 
-### Next Steps
-- Complete Lesson 13 documentation and commit the milestone.
-- Continue MCP foundations with Lesson 14.
-- Evaluate additional hardening scenarios, including timeout retries and HTTP 429 handling.
-- Complete the planned MCP foundations before introducing the LLM agent.
+## Lesson 14 — Logging and Observability
+
+- Added Python logging to the Auth0 token client.
+- Added DEBUG, INFO, and WARNING logs for token caching, requests, retries, and failures.
+- Added tests using pytest `caplog` to verify retry and cache logging.
+- Verified that access tokens and client secrets are not exposed in the tested log output.
+- Confirmed that all 11 tests pass.
+
+## Lesson 15 — MCP Security Hardening
+
+- Strengthened tool input validation.
+- Rejected boolean values for integer inputs.
+- Added explicit handling for JWT verification and JWKS connection failures.
+- Added tests for authentication failure logging and token-string protection.
+- Confirmed that all 15 tests pass.
 
 ## Long-Term Project Goals
 
@@ -94,10 +104,9 @@
 - Keep learning notes separate from official project documentation.
 - Refactor the application into a modular `src/` package when the appropriate milestone is reached.
 
-### Lesson 14 — Logging & Observability
+## Next Steps
 
-- Added Python logging to the Auth0 token client.
-- Added DEBUG, INFO, and WARNING logs for token caching, requests, retries, and failures.
-- Added tests using pytest `caplog` to verify retry and cache logging.
-- Verified that access tokens and client secrets are not exposed in the tested log output.
-- Confirmed that all 11 tests pass.
+- Complete the Lesson 15 documentation and commit/push the milestone if not already done.
+- Begin Lesson 16: integrate the MCP client with a real data source or external API.
+- Continue the planned MCP foundations before introducing the LLM agent.
+- Build toward the reusable `minimal-mcp` core and the end-to-end Travel AI application.

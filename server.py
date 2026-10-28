@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from jwt import PyJWKClient
+from jwt.exceptions import PyJWKClientConnectionError
 from mcp.server import MCPServer
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
@@ -64,7 +65,12 @@ class Auth0TokenVerifier(TokenVerifier):
                 expires_at=claims["exp"],
             )
 
+        except PyJWKClientConnectionError:
+            logger.warning("Unable to retrieve Auth0 signing keys.")
+            return None
+
         except jwt.PyJWTError:
+            logger.warning("JWT verification failed.")
             return None
 
 mcp = MCPServer(
@@ -116,8 +122,14 @@ def search_destinations(
 ) -> list[dict]:
     """Cari destinasi wisata berdasarkan kota dan budget maksimum."""
 
-    if not city.strip():
+    if not isinstance(city, str) or not city.strip():
         raise ValueError("City cannot be empty.")
+
+    if len(city) > 100:
+        raise ValueError("City cannot exceed 100 characters.")
+
+    if isinstance(max_budget, bool) or not isinstance(max_budget, int):
+        raise ValueError("Maximum budget must be an integer.")
 
     if max_budget < 0:
         raise ValueError("Maximum budget cannot be negative.")
@@ -142,14 +154,22 @@ def calculate_trip_budget(
 ) -> TripBudgetResult:
     """Calculate the estimated total budget for a trip."""
 
-    if days <= 0:
-        raise ValueError("Days must be greater than zero.")
+    if isinstance(days, bool) or not isinstance(days, int) or days <= 0:
+        raise ValueError("Days must be a positive integer.")
 
-    if daily_budget < 0:
-        raise ValueError("Daily budget cannot be negative.")
+    if (
+        isinstance(daily_budget, bool)
+        or not isinstance(daily_budget, int)
+        or daily_budget < 0
+    ):
+        raise ValueError("Daily budget must be a non-negative integer.")
 
-    if transport_cost < 0:
-        raise ValueError("Transport cost cannot be negative.")
+    if (
+        isinstance(transport_cost, bool)
+        or not isinstance(transport_cost, int)
+        or transport_cost < 0
+    ):
+        raise ValueError("Transport cost must be a non-negative integer.")
     
     logger.info("Calculating trip budget for %s days", days)
 

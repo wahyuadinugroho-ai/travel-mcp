@@ -1,8 +1,10 @@
-
+import jwt
+import logging
 import pytest
+from jwt.exceptions import PyJWKClientConnectionError
 from mcp import Client
-
-from server import mcp
+from server import Auth0TokenVerifier, mcp
+from unittest.mock import patch
 
 
 @pytest.fixture
@@ -82,3 +84,53 @@ async def test_plan_trip_prompt(client):
 
     assert result.messages
     assert "Bali" in str(result.messages)
+
+
+def test_search_destinations_rejects_excessively_long_city():
+    from server import search_destinations
+
+    with pytest.raises(ValueError):
+        search_destinations("A" * 101, 500_000)
+
+
+def test_calculate_trip_budget_rejects_boolean_days():
+    from server import calculate_trip_budget
+
+    with pytest.raises(ValueError):
+        calculate_trip_budget(True, 100_000, 50_000)
+
+
+@pytest.mark.anyio
+async def test_auth0_verifier_rejects_invalid_token(caplog):
+    caplog.set_level(logging.WARNING, logger="server")
+
+    verifier = Auth0TokenVerifier()
+
+    with patch.object(
+        verifier.jwks_client,
+        "get_signing_key_from_jwt",
+        side_effect=jwt.InvalidTokenError("invalid token"),
+    ):
+        result = await verifier.verify_token("invalid-token")
+
+    assert result is None
+    assert "JWT verification failed." in caplog.text
+    assert "invalid-token" not in caplog.text
+
+
+@pytest.mark.anyio
+async def test_auth0_verifier_handles_jwks_connection_error(caplog):
+    caplog.set_level(logging.WARNING, logger="server")
+
+    verifier = Auth0TokenVerifier()
+
+    with patch.object(
+        verifier.jwks_client,
+        "get_signing_key_from_jwt",
+        side_effect=PyJWKClientConnectionError("connection failed"),
+    ):
+        result = await verifier.verify_token("test-token")
+
+    assert result is None
+    assert "Unable to retrieve Auth0 signing keys." in caplog.text
+    assert "test-token" not in caplog.text
