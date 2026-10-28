@@ -104,3 +104,122 @@ async def test_get_access_token_refreshes_near_expiration(monkeypatch):
 
     assert token == "test-token-1"
     assert request_count == 1
+
+
+@pytest.mark.anyio
+async def test_get_access_token_retries_server_error(monkeypatch):
+    request_count = 0
+
+    def mock_handler(request: httpx2.Request) -> httpx2.Response:
+        nonlocal request_count
+        request_count += 1
+
+        if request_count == 1:
+            return httpx2.Response(500, json={"error": "server_error"})
+
+        return httpx2.Response(
+            200,
+            json={
+                "access_token": "recovered-token",
+                "expires_in": 3600,
+                "token_type": "Bearer",
+            },
+        )
+
+    monkeypatch.setenv("AUTH0_DOMAIN", "example.auth0.com")
+    monkeypatch.setenv("AUTH0_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("AUTH0_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("AUTH0_AUDIENCE", "https://travel-mcp-api")
+
+    monkeypatch.setattr(auth0_client, "_cached_access_token", None)
+    monkeypatch.setattr(auth0_client, "_token_expires_at", 0.0)
+
+    async def mock_sleep(delay):
+        pass
+
+    monkeypatch.setattr(auth0_client.asyncio, "sleep", mock_sleep)
+
+    transport = httpx2.MockTransport(mock_handler)
+    original_async_client = httpx2.AsyncClient
+
+    def mock_async_client(**kwargs):
+        return original_async_client(transport=transport, **kwargs)
+
+    monkeypatch.setattr(auth0_client.httpx2, "AsyncClient", mock_async_client)
+
+    token = await auth0_client.get_access_token()
+
+    assert token == "recovered-token"
+    assert request_count == 2
+
+
+@pytest.mark.anyio
+async def test_get_access_token_does_not_retry_client_error(monkeypatch):
+    request_count = 0
+
+    def mock_handler(request: httpx2.Request) -> httpx2.Response:
+        nonlocal request_count
+        request_count += 1
+        return httpx2.Response(401, json={"error": "unauthorized"})
+
+    monkeypatch.setenv("AUTH0_DOMAIN", "example.auth0.com")
+    monkeypatch.setenv("AUTH0_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("AUTH0_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("AUTH0_AUDIENCE", "https://travel-mcp-api")
+
+    monkeypatch.setattr(auth0_client, "_cached_access_token", None)
+    monkeypatch.setattr(auth0_client, "_token_expires_at", 0.0)
+
+    async def mock_sleep(delay):
+        pass
+
+    monkeypatch.setattr(auth0_client.asyncio, "sleep", mock_sleep)
+
+    transport = httpx2.MockTransport(mock_handler)
+    original_async_client = httpx2.AsyncClient
+
+    def mock_async_client(**kwargs):
+        return original_async_client(transport=transport, **kwargs)
+
+    monkeypatch.setattr(auth0_client.httpx2, "AsyncClient", mock_async_client)
+
+    with pytest.raises(httpx2.HTTPStatusError):
+        await auth0_client.get_access_token()
+
+    assert request_count == 1
+
+
+@pytest.mark.anyio
+async def test_get_access_token_retries_network_error(monkeypatch):
+    request_count = 0
+
+    def mock_handler(request: httpx2.Request) -> httpx2.Response:
+        nonlocal request_count
+        request_count += 1
+        raise httpx2.ConnectError("network error", request=request)
+
+    monkeypatch.setenv("AUTH0_DOMAIN", "example.auth0.com")
+    monkeypatch.setenv("AUTH0_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("AUTH0_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("AUTH0_AUDIENCE", "https://travel-mcp-api")
+
+    monkeypatch.setattr(auth0_client, "_cached_access_token", None)
+    monkeypatch.setattr(auth0_client, "_token_expires_at", 0.0)
+
+    async def mock_sleep(delay):
+        pass
+
+    monkeypatch.setattr(auth0_client.asyncio, "sleep", mock_sleep)
+
+    transport = httpx2.MockTransport(mock_handler)
+    original_async_client = httpx2.AsyncClient
+
+    def mock_async_client(**kwargs):
+        return original_async_client(transport=transport, **kwargs)
+
+    monkeypatch.setattr(auth0_client.httpx2, "AsyncClient", mock_async_client)
+
+    with pytest.raises(httpx2.ConnectError):
+        await auth0_client.get_access_token()
+
+    assert request_count == 3
