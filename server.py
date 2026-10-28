@@ -1,6 +1,8 @@
 from mcp.server import MCPServer
 from typing import TypedDict
+import logging
 
+logger = logging.getLogger(__name__)
 
 mcp = MCPServer("Travel Assistant")
 
@@ -48,6 +50,8 @@ def search_destinations(
     if max_budget < 0:
         raise ValueError("Maximum budget cannot be negative.")
 
+    logger.info("Searching destinations for city: %s", city)
+
     results = [
         destination
         for destination in DESTINATIONS
@@ -74,6 +78,8 @@ def calculate_trip_budget(
 
     if transport_cost < 0:
         raise ValueError("Transport cost cannot be negative.")
+    
+    logger.info("Calculating trip budget for %s days", days)
 
     return {
         "days": days,
