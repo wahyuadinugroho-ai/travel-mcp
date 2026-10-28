@@ -1,35 +1,80 @@
+from dotenv import load_dotenv
+from jwt import PyJWKClient
 from mcp.server import MCPServer
-from typing import TypedDict
-from pydantic import AnyHttpUrl
 from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
+from pydantic import AnyHttpUrl
+from typing import TypedDict
+import jwt
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
+load_dotenv()
+
+AUTH0_DOMAIN = os.environ["AUTH0_DOMAIN"].removeprefix("https://").rstrip("/")
+AUTH0_AUDIENCE = os.environ["AUTH0_AUDIENCE"]
+AUTH0_ISSUER = f"https://{AUTH0_DOMAIN}/"
+AUTH0_JWKS_URL = f"{AUTH0_ISSUER}.well-known/jwks.json"
 RESOURCE_URL = "http://127.0.0.1:8000/mcp"
 
-KNOWN_TOKENS = {
-    "travel-dev-token": AccessToken(
-        token="travel-dev-token",
-        client_id="travel-local-client",
-        scopes=["travel:read"],
-        resource=RESOURCE_URL,
-    )
-}
+# KNOWN_TOKENS = {
+#     "travel-dev-token": AccessToken(
+#         token="travel-dev-token",
+#         client_id="travel-local-client",
+#         scopes=["travel:read"],
+#         resource=RESOURCE_URL,
+#     )
+# }
 
-class StaticTokenVerifier(TokenVerifier):
+# class StaticTokenVerifier(TokenVerifier):
+#     async def verify_token(self, token: str) -> AccessToken | None:
+#         return KNOWN_TOKENS.get(token)
+
+class Auth0TokenVerifier(TokenVerifier):
+    def __init__(self) -> None:
+        self.jwks_client = PyJWKClient(AUTH0_JWKS_URL)
+
     async def verify_token(self, token: str) -> AccessToken | None:
-        return KNOWN_TOKENS.get(token)
+        try:
+            signing_key = self.jwks_client.get_signing_key_from_jwt(token)
+
+            claims = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["RS256"],
+                audience=AUTH0_AUDIENCE,
+                issuer=AUTH0_ISSUER,
+                options={"require": ["exp", "iss", "aud"]},
+            )
+
+            scopes = claims.get("scope", "").split()
+            if "travel:read" not in scopes:
+                return None
+
+            client_id = claims.get("azp") or claims.get("client_id")
+            if not client_id:
+                return None
+
+            return AccessToken(
+                token=token,
+                client_id=client_id,
+                scopes=scopes,
+                expires_at=claims["exp"],
+            )
+
+        except jwt.PyJWTError:
+            return None
 
 mcp = MCPServer(
     "Travel Assistant",
-    token_verifier=StaticTokenVerifier(),
+    token_verifier=Auth0TokenVerifier(),
     auth=AuthSettings(
-            issuer_url=AnyHttpUrl("https://auth.example.com"),
+            issuer_url=AnyHttpUrl(AUTH0_ISSUER),
             resource_server_url=AnyHttpUrl(RESOURCE_URL),
             required_scopes=["travel:read"],
-            validate_token_resource=True,
+            validate_token_resource=False,
         ),
     )
 

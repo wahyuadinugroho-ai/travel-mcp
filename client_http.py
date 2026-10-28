@@ -1,13 +1,17 @@
 import anyio
 import httpx2
 
+from auth0_client import get_access_token
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 
 async def main() -> None:
+
+    access_token = await get_access_token()
+    
     async with httpx2.AsyncClient(
         headers={
-            "Authorization": "Bearer travel-dev-token",
+            "Authorization": f"Bearer {access_token}",
         }
     ) as http_client:
         transport = streamable_http_client(
