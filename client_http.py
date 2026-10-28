@@ -5,7 +5,7 @@ from mcp import Client
 
 
 async def main() -> None:
-    async with Client("http://0.0.0.0:8000/mcp") as client:
+    async with Client("http://127.0.0.1:8000/mcp") as client:
         # Discover available tools
         tools = await client.list_tools()
 
