@@ -139,6 +139,75 @@ async def search_city(city: str) -> bool:
 
     return bool(data.get("results"))
 
+
+@mcp.tool()
+async def search_tourist_places(
+    latitude: float,
+    longitude: float,
+    radius_meters: int = 5000,
+):
+    """Search named tourist attractions near geographic coordinates."""
+
+    api_key = os.getenv("GEOAPIFY_API_KEY")
+    if not api_key:
+        raise ValueError("GEOAPIFY_API_KEY is not configured.")
+
+    if not isinstance(latitude, (int, float)) or isinstance(latitude, bool):
+        raise ValueError("Latitude must be a number.")
+    if not -90 <= latitude <= 90:
+        raise ValueError("Latitude must be between -90 and 90.")
+
+    if not isinstance(longitude, (int, float)) or isinstance(longitude, bool):
+        raise ValueError("Longitude must be a number.")
+    if not -180 <= longitude <= 180:
+        raise ValueError("Longitude must be between -180 and 180.")
+
+    if (
+        isinstance(radius_meters, bool)
+        or not isinstance(radius_meters, int)
+        or not 1 <= radius_meters <= 20_000
+    ):
+        raise ValueError("Radius must be an integer between 1 and 20000 meters.")
+
+    url = "https://api.geoapify.com/v2/places"
+    params = {
+        "categories": "tourism.attraction,tourism.sights",
+        "filter": f"circle:{longitude},{latitude},{radius_meters}",
+        "limit": 20,
+        "lang": "en",
+        "apiKey": api_key,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+    except httpx.HTTPError:
+        logger.warning("Geoapify places request failed.")
+        raise
+
+    places = []
+    for feature in data.get("features", []):
+        properties = feature.get("properties", {})
+        name = properties.get("name")
+        lat = properties.get("lat")
+        lon = properties.get("lon")
+
+        if not name or lat is None or lon is None:
+            continue
+
+        places.append({
+            "name": name,
+            "lat": lat,
+            "lon": lon,
+            "categories": properties.get("categories", []),
+        })
+
+    logger.info("Found %s named tourist places.", len(places))
+    return places
+
+
 @mcp.tool()
 async def search_destinations(
     city: str,

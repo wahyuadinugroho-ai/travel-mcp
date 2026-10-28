@@ -196,3 +196,200 @@ async def test_search_city_raises_on_http_error(monkeypatch):
 
     with pytest.raises(httpx.HTTPStatusError):
         await search_city("Jakarta")
+
+
+@pytest.mark.anyio
+async def test_search_tourist_places(monkeypatch):
+    from server import search_tourist_places
+
+    monkeypatch.setenv("GEOAPIFY_API_KEY", "test-api-key")
+
+    class MockResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "features": [
+                    {
+                        "properties": {
+                            "name": "Pura Dalem Cemara",
+                            "lat": -8.7229,
+                            "lon": 115.2368,
+                            "categories": ["tourism", "tourism.sights"],
+                        }
+                    },
+                    {
+                        "properties": {
+                            "name": None,
+                            "lat": -8.65,
+                            "lon": 115.21,
+                            "categories": ["tourism"],
+                        }
+                    },
+                ]
+            }
+
+    class MockClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get(self, url, params):
+            assert url == "https://api.geoapify.com/v2/places"
+            assert params["categories"] == "tourism.attraction,tourism.sights"
+            return MockResponse()
+
+    monkeypatch.setattr("server.httpx.AsyncClient", MockClient)
+
+    result = await search_tourist_places(
+        latitude=-8.6705,
+        longitude=115.2126,
+        radius_meters=5000,
+    )
+
+    assert len(result) == 1
+    assert result[0]["name"] == "Pura Dalem Cemara"
+    assert result[0]["lat"] == -8.7229
+    assert result[0]["lon"] == 115.2368
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("latitude", "longitude", "radius_meters"),
+    [
+        (91, 115.2, 5000),
+        (-91, 115.2, 5000),
+        (-8.67, 181, 5000),
+        (-8.67, -181, 5000),
+        (-8.67, 115.2, 0),
+        (-8.67, 115.2, 20001),
+        (True, 115.2, 5000),
+        (-8.67, 115.2, True),
+    ],
+)
+async def test_search_tourist_places_rejects_invalid_input(
+    monkeypatch,
+    latitude,
+    longitude,
+    radius_meters,
+):
+    from server import search_tourist_places
+
+    monkeypatch.setenv("GEOAPIFY_API_KEY", "test-api-key")
+
+    with pytest.raises(ValueError):
+        await search_tourist_places(
+            latitude=latitude,
+            longitude=longitude,
+            radius_meters=radius_meters,
+        )
+
+
+@pytest.mark.anyio
+async def test_search_tourist_places_raises_on_http_error(monkeypatch):
+    from server import search_tourist_places
+
+    monkeypatch.setenv("GEOAPIFY_API_KEY", "test-api-key")
+
+    class MockResponse:
+        def raise_for_status(self):
+            raise httpx.HTTPStatusError(
+                "Server error",
+                request=httpx.Request(
+                    "GET",
+                    "https://api.geoapify.com/v2/places",
+                ),
+                response=httpx.Response(500),
+            )
+
+    class MockClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get(self, url, params):
+            return MockResponse()
+
+    monkeypatch.setattr("server.httpx.AsyncClient", MockClient)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await search_tourist_places(
+            latitude=-8.6705,
+            longitude=115.2126,
+            radius_meters=5000,
+        )
+
+
+@pytest.mark.anyio
+async def test_search_tourist_places_is_registered(client):
+    result = await client.list_tools()
+
+    tool_names = [tool.name for tool in result.tools]
+
+    assert "search_tourist_places" in tool_names
+
+
+@pytest.mark.anyio
+async def test_search_tourist_places_through_mcp_client(client, monkeypatch):
+    monkeypatch.setenv("GEOAPIFY_API_KEY", "test-api-key")
+
+    class MockResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "features": [
+                    {
+                        "properties": {
+                            "name": "Pura Dalem Cemara",
+                            "lat": -8.7229,
+                            "lon": 115.2368,
+                            "categories": ["tourism.sights"],
+                        }
+                    }
+                ]
+            }
+
+    class MockClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get(self, url, params):
+            assert url == "https://api.geoapify.com/v2/places"
+            return MockResponse()
+
+    monkeypatch.setattr("server.httpx.AsyncClient", MockClient)
+
+    result = await client.call_tool(
+        "search_tourist_places",
+        {
+            "latitude": -8.6705,
+            "longitude": 115.2126,
+            "radius_meters": 5000,
+        },
+    )
+
+    assert not result.is_error
+    assert any(
+        "Pura Dalem Cemara" in item.text
+        for item in result.content
+        if hasattr(item, "text")
+    )

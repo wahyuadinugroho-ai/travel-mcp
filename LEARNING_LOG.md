@@ -124,6 +124,39 @@ The Open-Meteo API validates city existence only. Destination names and budget v
 - Commit the completed milestone.
 - Continue with Lesson 17.
 
+## Lesson 17 — Integrating Geoapify Places API
+
+### Objective
+
+Integrate a real external API to retrieve tourist places and their coordinates through an MCP tool.
+
+### Implementation
+
+- Added `search_tourist_places` to retrieve nearby tourist places using the Geoapify Places API.
+- Read the API key from the `GEOAPIFY_API_KEY` environment variable.
+- Accepted latitude, longitude, and an optional search radius.
+- Validated coordinate ranges and radius limits.
+- Filtered results that do not have a name or valid coordinates.
+- Returned each place's name, latitude, longitude, and categories.
+- Registered `search_tourist_places` as an MCP tool.
+- Added tests for successful responses, invalid inputs, HTTP errors, and MCP tool registration and invocation.
+- Kept `search_destinations` and the local `DESTINATIONS` dataset unchanged.
+
+### Testing
+
+- Verified the full test suite: 29 tests passed.
+- Mocked Geoapify HTTP responses to keep tests independent of external API availability.
+
+### Security Notes
+
+- Store `GEOAPIFY_API_KEY` in the local `.env` file.
+- Do not commit `.env` or expose the API key in logs or source code.
+- Keep `.env` listed in `.gitignore`.
+
+### Outcome
+
+The MCP server can now expose real tourist-place search results through Geoapify while preserving the existing destination search and budget calculation features.
+
 ## Long-Term Project Goals
 
 - Develop `travel-mcp` into a production-oriented Travel AI application with real data, an LLM agent, testing, and deployment.
