@@ -1,14 +1,25 @@
 
 import os
-
+import time
 import httpx2
 from dotenv import load_dotenv
 
 
 load_dotenv()
 
+_cached_access_token: str | None = None
+_token_expires_at = 0.0
 
 async def get_access_token() -> str:
+    global _cached_access_token, _token_expires_at
+
+    # Reuse the cached token if it is still valid.
+    if (
+        _cached_access_token is not None
+        and time.monotonic() < _token_expires_at - 60
+    ):
+        return _cached_access_token
+
     domain = os.environ["AUTH0_DOMAIN"].removeprefix("https://").rstrip("/")
     client_id = os.environ["AUTH0_CLIENT_ID"]
     client_secret = os.environ["AUTH0_CLIENT_SECRET"]
@@ -28,4 +39,7 @@ async def get_access_token() -> str:
         response.raise_for_status()
         payload = response.json()
 
-    return payload["access_token"]
+    _cached_access_token = payload["access_token"]
+    _token_expires_at = time.monotonic() + payload["expires_in"]
+
+    return _cached_access_token
