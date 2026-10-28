@@ -1,3 +1,4 @@
+import httpx
 import jwt
 import logging
 import pytest
@@ -19,7 +20,12 @@ async def client():
 
 
 @pytest.mark.anyio
-async def test_search_destinations(client):
+async def test_search_destinations(client, monkeypatch):
+    async def mock_search_city(city: str) -> bool:
+        return True
+
+    monkeypatch.setattr("server.search_city", mock_search_city)
+
     result = await client.call_tool(
         "search_destinations",
         {
@@ -30,6 +36,27 @@ async def test_search_destinations(client):
 
     assert not result.is_error
     assert "Pantai Kuta" in str(result.structured_content)
+
+
+@pytest.mark.anyio
+async def test_search_destinations_returns_empty_when_city_not_found(
+    client, monkeypatch
+):
+    async def mock_search_city(city: str) -> bool:
+        return False
+
+    monkeypatch.setattr("server.search_city", mock_search_city)
+
+    result = await client.call_tool(
+        "search_destinations",
+        {
+            "city": "KotaFiktifXYZ",
+            "max_budget": 500_000,
+        },
+    )
+
+    assert not result.is_error
+    assert result.structured_content == {"result": []}
 
 
 @pytest.mark.anyio
@@ -86,11 +113,12 @@ async def test_plan_trip_prompt(client):
     assert "Bali" in str(result.messages)
 
 
-def test_search_destinations_rejects_excessively_long_city():
+@pytest.mark.anyio
+async def test_search_destinations_rejects_excessively_long_city():
     from server import search_destinations
 
     with pytest.raises(ValueError):
-        search_destinations("A" * 101, 500_000)
+        await search_destinations("A" * 101, 500_000)
 
 
 def test_calculate_trip_budget_rejects_boolean_days():
@@ -134,3 +162,37 @@ async def test_auth0_verifier_handles_jwks_connection_error(caplog):
     assert result is None
     assert "Unable to retrieve Auth0 signing keys." in caplog.text
     assert "test-token" not in caplog.text
+
+
+@pytest.mark.anyio
+async def test_search_city_raises_on_http_error(monkeypatch):
+    from server import search_city
+
+    class MockResponse:
+        def raise_for_status(self):
+            raise httpx.HTTPStatusError(
+                "Server error",
+                request=httpx.Request("GET", "https://example.com"),
+                response=httpx.Response(500),
+            )
+
+        def json(self):
+            return {}
+
+    class MockClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def get(self, *args, **kwargs):
+            return MockResponse()
+
+    monkeypatch.setattr("server.httpx.AsyncClient", MockClient)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await search_city("Jakarta")

@@ -6,6 +6,7 @@ from mcp.server.auth.provider import AccessToken, TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from pydantic import AnyHttpUrl
 from typing import TypedDict
+import httpx
 import jwt
 import logging
 import os
@@ -115,12 +116,35 @@ DESTINATIONS = [
 ]
 
 
+async def search_city(city: str) -> bool:
+    """Check whether a city exists using the Open-Meteo Geocoding API."""
+
+    url = "https://geocoding-api.open-meteo.com/v1/search"
+    params = {
+        "name": city,
+        "count": 1,
+        "language": "en",
+        "format": "json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+    except httpx.HTTPError:
+        logger.warning("Open-Meteo geocoding request failed.")
+        raise
+
+    return bool(data.get("results"))
+
 @mcp.tool()
-def search_destinations(
+async def search_destinations(
     city: str,
     max_budget: int,
 ) -> list[dict]:
-    """Cari destinasi wisata berdasarkan kota dan budget maksimum."""
+    """Search travel destinations by city and maximum budget."""
 
     if not isinstance(city, str) or not city.strip():
         raise ValueError("City cannot be empty.")
@@ -134,7 +158,14 @@ def search_destinations(
     if max_budget < 0:
         raise ValueError("Maximum budget cannot be negative.")
 
+    city = city.strip()
+
     logger.info("Searching destinations for city: %s", city)
+
+    city_exists = await search_city(city)
+
+    if not city_exists:
+        return []
 
     results = [
         destination

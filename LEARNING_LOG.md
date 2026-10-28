@@ -97,6 +97,33 @@
 - Added tests for authentication failure logging and token-string protection.
 - Confirmed that all 15 tests pass.
 
+## Lesson 16 — Public API Integration
+
+### Goal
+Integrate a public API into the existing Travel MCP server while preserving existing MCP tools, resources, prompts, and authentication.
+
+### What I Learned
+- Added `httpx` to make asynchronous HTTP requests.
+- Integrated the Open-Meteo Geocoding API to check whether a city exists.
+- Updated `search_destinations` to asynchronously validate a city before searching local destination data.
+- Kept destination names and budget values in the existing local dataset.
+- Added error handling for HTTP failures and logging without exposing sensitive information.
+- Mocked API calls in tests to avoid relying on an external service during test execution.
+
+### Testing
+- Added a test for a city that is not found.
+- Added a test for HTTP errors from the geocoding API.
+- Verified that existing MCP and Auth0 tests continue to pass.
+- Result: **17 tests passed**.
+
+### Important Note
+The Open-Meteo API validates city existence only. Destination names and budget values still come from the local `DESTINATIONS` dataset; they are not retrieved from the API.
+
+### Next Steps
+- Review the Lesson 16 changes.
+- Commit the completed milestone.
+- Continue with Lesson 17.
+
 ## Long-Term Project Goals
 
 - Develop `travel-mcp` into a production-oriented Travel AI application with real data, an LLM agent, testing, and deployment.
